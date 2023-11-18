@@ -7,6 +7,9 @@ use Digest::MD5;
 #     users can use p and p+1 for testing with proxy and the Tiny web
 #     server.
 #     
+# 이 파일 사용해서 proxy나 tiny server에 대한 고유 포트를 생성
+#
+# Generates a random port for a particular user usage: ./port-for-user.pl <userID>
 #     usage: ./port-for-user.pl [optional user name]
 #
 my $maxport = 65536;
@@ -29,6 +32,7 @@ sub hashname {
 
 # If called with no command line arg, then hash the userid, otherwise
 # hash the command line argument(s).
+# hash: 특정 데이터를 이를 상징하는 더 짧은 길이의 데이터로 변환하는 행위.
 if($#ARGV == -1) {
     my ($username) = getpwuid($<);
     hashname($username);

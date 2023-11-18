@@ -2,6 +2,7 @@
 
 #
 # free-port.sh - returns an unused TCP port. 
+# 이 파일 사용해서 proxy나 tiny server에 대한 고유 포트를 생성
 #
 PORT_START=4500
 PORT_MAX=65000
