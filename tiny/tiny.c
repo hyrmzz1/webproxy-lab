@@ -184,10 +184,12 @@ void serve_static(int fd, char *filename, int filesize)
  /*
  * get_filetype - Derive file type from filename
  */
-void get_filetype(char *filename, char *filetype)
+void get_filetype(char *filename, char *filetype) // filename으로 전달된 파일 이름을 기반으로 filetype에 해당 파일의 MIME 유형을 복사
 {
-  if (strstr(filename, ".html"))
+  if (strstr(filename, ".html"))  // strstr(): 첫 번째 인자로 전달된 문자열에서 두 번째 인자로 전달된 부분 문자열이 있는지 검사.
     strcpy(filetype, "text/html");
+  else if (strstr(filename, ".mpg"))  // filename에 ".mpg"있는지 검사
+    strcpy(filetype, "video/mpg");  // 있으면 filetype에 "video/mpg" 덮어 씌움
   else if (strstr(filename, ".gif"))
     strcpy(filetype, "image/gif");
   else if (strstr(filename, ".png"))
