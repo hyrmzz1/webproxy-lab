@@ -8,11 +8,11 @@ CC = gcc
 CFLAGS = -g -Wall
 LDFLAGS = -lpthread
 
-echoclient: echoclient.c csapp.on
-	$(CC) $(CFLAGS) -o echoclient echoclient.c csapp.o $(LIB)
+echoclient: echoclient.c csapp.o
+	$(CC) $(CFLAGS) -o echoclient echoclient.c csapp.o $(LDFLAGS)
 
-echoserveri: echoserveri.c echo.c csapp.o $(LIB)
-	$(CC) $(CFLAGS) -o echoserveri echoserveri.c echo.c csapp.o $(LIB)
+echoserveri: echoserveri.c echo.c csapp.o $(LDFLAGS)
+	$(CC) $(CFLAGS) -o echoserveri echoserveri.c echo.c csapp.o $(LDFLAGS)
 
 csapp.o: csapp.c csapp.h
 	$(CC) $(CFLAGS) -c csapp.c
