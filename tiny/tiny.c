@@ -174,11 +174,22 @@ void serve_static(int fd, char *filename, int filesize)
   printf("%s", buf);
 
   /* Send response body to client */
+  /*
+  srcfd = Open(filename, O_RDONLY, 0);  // 파일 열고 성공시 srcfd에 파일 디스크립터 반환 
+  // Mmap(): 메모리 매핑 함수. 커널에 새 가상 메모리 영역 생성을 요청. 파일을 메모리에 매핑=> 파일을 메모리로 읽거나 쓰게 함.
+  srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0); // srcp: 매핑된 메모리 영역의 시작 주소 할당되는 포인터
+  Close(srcfd); // 파일 더이상 필요 없을 때 파일 닫음 => 시스템 자원 확보
+  Rio_writen(fd, srcp, filesize); // srcp가 가리키는 메모리 위치의 데이터를 fd가 나타내는 파일에 기록.
+  Munmap(srcp, filesize); // 매핑 해제 (더이상 매핑 필요없을 때)
+  */
+
+ // Mmap=> malloc, Munmap=> free 로 대체
   srcfd = Open(filename, O_RDONLY, 0);
-  srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0);
-  Close(srcfd);
-  Rio_writen(fd, srcp, filesize);
-  Munmap(srcp, filesize);
+  srcp = (char *)malloc(filesize);  // filesize 크기의 버퍼 srcp에 대해 메모리 동적 할당. mmap과 달리 메모리 공간 할당하기만 함.
+  Rio_readn(srcfd, srcp, filesize); // 포인터 매핑. srcfd에서 데이터 읽고 이를 srcp가 가리키는 메모리 버퍼에 저장.
+  Close(srcfd); // 열린 파일과 관련 리소스 해제 (srcp에 데이터 저장해서 이제 srcfd 필요 없음)
+  Rio_writen(fd, srcp, filesize); // srcp 버퍼에 저장된 데이터를 fd가 나타내는 다른 파일이나 소켓에 기록.
+  free(srcp); // 메모리 할당 해제
 }
 
  /*
