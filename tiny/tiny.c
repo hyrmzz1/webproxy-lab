@@ -61,7 +61,7 @@ void doit(int fd){
   printf("%s", buf);  // GET / HTTP/1.1
 
   //sscanf : string scanf 로, 문자를 추출해서 데이터를 변수에 저장
-  sscanf(buf, "%s %s %s", method, uri, version);  // 파싱하여 정보 추출. http 메서드(= GET), uri(= HTTP), version(= 1.1)
+  sscanf(buf, "%s %s %s", method, uri, version);  // 파싱하여 정보 추출. 공백으로 구분됨. http 메서드(= GET), uri(= /), version(= HTTP/1.1)
 
   if(strcasecmp(method, "GET") && strcasecmp(method, "HEAD")){  // GET, HEAD 둘다 아니면 1=> 에러 처리 함수 실행
     clienterror(fd, method, "501", "Not implemented", "Tiny does not implement this method");
@@ -122,7 +122,7 @@ void read_requesthdrs(rio_t *rp)
 
   Rio_readlineb(rp, buf, MAXLINE);
   printf("gugugugugu%s", buf);
-  while(strcmp(buf, "\r\n")) { //공백 두개인 경우까지 반복문 수행
+  while(strcmp(buf, "\r\n")) { 
     Rio_readlineb(rp, buf, MAXLINE);
     printf("%s", buf);
   }
@@ -227,6 +227,7 @@ void serve_dynamic(int fd, char *filename, char *cgiargs, char* HTTP_method)
   if (Fork() == 0) { /* Child */
     /* Real server would set all CGI vars here */
     setenv("QUERY_STRING", cgiargs, 1);
+    setenv("REQUEST_METHOD", HTTP_method, 1); // cgi-bin/adder로 보내주기 위함
     Dup2(fd, STDOUT_FILENO); /* Redirect stdout to client */
     Execve(filename, emptylist, environ); /* Run CGI program */
   }
