@@ -11,9 +11,9 @@
 void doit(int fd);
 void read_requesthdrs(rio_t *rp);
 int parse_uri(char *uri, char *filename, char *cgiargs);
-void serve_static(int fd, char *filename, int filesize);
+void serve_static(int fd, char *filename, int filesize, char* HTTP_method);
 void get_filetype(char *filename, char *filetype);
-void serve_dynamic(int fd, char *filename, char *cgiargs);
+void serve_dynamic(int fd, char *filename, char *cgiargs, char* HTTP_method);
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg,
                  char *longmsg);
 
@@ -63,7 +63,7 @@ void doit(int fd){
   //sscanf : string scanf 로, 문자를 추출해서 데이터를 변수에 저장
   sscanf(buf, "%s %s %s", method, uri, version);  // 파싱하여 정보 추출. http 메서드(= GET), uri(= HTTP), version(= 1.1)
 
-  if(strcasecmp(method, "GET")){
+  if(strcasecmp(method, "GET") && strcasecmp(method, "HEAD")){  // GET, HEAD 둘다 아니면 1=> 에러 처리 함수 실행
     clienterror(fd, method, "501", "Not implemented", "Tiny does not implement this method");
     return;
   }
@@ -84,14 +84,14 @@ void doit(int fd){
       clienterror(fd, filename, "403", "Forbidden", "Tiny couldn’t read the file");
       return;
     }
-    serve_static(fd, filename, sbuf.st_size);
+    serve_static(fd, filename, sbuf.st_size, method);
   }
   else { /* Serve dynamic content */
     if (!(S_ISREG(sbuf.st_mode)) || !(S_IXUSR & sbuf.st_mode)) {
       clienterror(fd, filename, "403", "Forbidden", "Tiny couldn’t run the CGI program");
       return;
     }
-    serve_dynamic(fd, filename, cgiargs);
+    serve_dynamic(fd, filename, cgiargs, method);
   }
 }
 
@@ -157,7 +157,7 @@ int parse_uri(char *uri, char *filename, char *cgiargs)
   }
 }
 
-void serve_static(int fd, char *filename, int filesize)
+void serve_static(int fd, char *filename, int filesize, char* HTTP_method) // client에서 response headers와 response body를 보냄.
 {
   int srcfd;
   char *srcp, filetype[MAXLINE], buf[MAXBUF];
@@ -173,23 +173,26 @@ void serve_static(int fd, char *filename, int filesize)
   printf("Response headers:\n");
   printf("%s", buf);
 
-  /* Send response body to client */
-  /*
-  srcfd = Open(filename, O_RDONLY, 0);  // 파일 열고 성공시 srcfd에 파일 디스크립터 반환 
-  // Mmap(): 메모리 매핑 함수. 커널에 새 가상 메모리 영역 생성을 요청. 파일을 메모리에 매핑=> 파일을 메모리로 읽거나 쓰게 함.
-  srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0); // srcp: 매핑된 메모리 영역의 시작 주소 할당되는 포인터
-  Close(srcfd); // 파일 더이상 필요 없을 때 파일 닫음 => 시스템 자원 확보
-  Rio_writen(fd, srcp, filesize); // srcp가 가리키는 메모리 위치의 데이터를 fd가 나타내는 파일에 기록.
-  Munmap(srcp, filesize); // 매핑 해제 (더이상 매핑 필요없을 때)
-  */
+  // HTTP_method가 HEAD일 땐 응답에 body 부분을 포함하지 않음
+  if (strcmp(HTTP_method, "GET") == 0){  // strcmp(): HTTP_method 포인터가 가리키는 문자열이 "GET"이면 0을 반환. `HTTP_method == "GET"`은 HTTP_method에 저장된 메모리 주소와 문자열 리터럴 "GET"의 메모리 주소를 비교함.
+    /* Send response body to client */
+    /*
+    srcfd = Open(filename, O_RDONLY, 0);  // 파일 열고 성공시 srcfd에 파일 디스크립터 반환 
+    // Mmap(): 메모리 매핑 함수. 커널에 새 가상 메모리 영역 생성을 요청. 파일을 메모리에 매핑=> 파일을 메모리로 읽거나 쓰게 함.
+    srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0); // srcp: 매핑된 메모리 영역의 시작 주소 할당되는 포인터
+    Close(srcfd); // 파일 더이상 필요 없을 때 파일 닫음 => 시스템 자원 확보
+    Rio_writen(fd, srcp, filesize); // srcp가 가리키는 메모리 위치의 데이터를 fd가 나타내는 파일에 기록.
+    Munmap(srcp, filesize); // 매핑 해제 (더이상 매핑 필요없을 때)
+    */
 
- // Mmap=> malloc, Munmap=> free 로 대체
-  srcfd = Open(filename, O_RDONLY, 0);
-  srcp = (char *)malloc(filesize);  // filesize 크기의 버퍼 srcp에 대해 메모리 동적 할당. mmap과 달리 메모리 공간 할당하기만 함.
-  Rio_readn(srcfd, srcp, filesize); // 포인터 매핑. srcfd에서 데이터 읽고 이를 srcp가 가리키는 메모리 버퍼에 저장.
-  Close(srcfd); // 열린 파일과 관련 리소스 해제 (srcp에 데이터 저장해서 이제 srcfd 필요 없음)
-  Rio_writen(fd, srcp, filesize); // srcp 버퍼에 저장된 데이터를 fd가 나타내는 다른 파일이나 소켓에 기록.
-  free(srcp); // 메모리 할당 해제
+    // Mmap=> malloc, Munmap=> free 로 대체
+    srcfd = Open(filename, O_RDONLY, 0);
+    srcp = (char *)malloc(filesize);  // filesize 크기의 버퍼 srcp에 대해 메모리 동적 할당. mmap과 달리 메모리 공간 할당하기만 함.
+    Rio_readn(srcfd, srcp, filesize); // 포인터 매핑. srcfd에서 데이터 읽고 이를 srcp가 가리키는 메모리 버퍼에 저장.
+    Close(srcfd); // 열린 파일과 관련 리소스 해제 (srcp에 데이터 저장해서 이제 srcfd 필요 없음)
+    Rio_writen(fd, srcp, filesize); // srcp 버퍼에 저장된 데이터를 fd가 나타내는 다른 파일이나 소켓에 기록.
+    free(srcp); // 메모리 할당 해제
+  }
 }
 
  /*
@@ -211,7 +214,7 @@ void get_filetype(char *filename, char *filetype) // filename으로 전달된 �
     strcpy(filetype, "text/plain");
 }
 
-void serve_dynamic(int fd, char *filename, char *cgiargs)
+void serve_dynamic(int fd, char *filename, char *cgiargs, char* HTTP_method)
 {
   char buf[MAXLINE], *emptylist[] = { NULL };
 
